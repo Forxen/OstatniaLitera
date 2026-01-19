@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>SŁOWO-LINK PRO | MULTI</title>
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        :root { --neon: #00ff41; --bg: #050505; }
+        body { background: var(--bg); color: white; font-family: 'Courier New', monospace; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        .terminal { width: 90%; max-width: 600px; height: 80vh; border: 2px solid var(--neon); background: rgba(0,20,0,0.9); box-shadow: 0 0 20px rgba(0,255,65,0.2); display: flex; flex-direction: column; padding: 20px; border-radius: 5px; }
+        .header { border-bottom: 1px solid var(--neon); padding-bottom: 10px; margin-bottom: 15px; font-size: 0.8em; }
+        #history { flex-grow: 1; overflow-y: auto; margin-bottom: 15px; scrollbar-width: thin; scrollbar-color: var(--neon) transparent; }
+        .msg { margin-bottom: 5px; animation: blink 0.1s; }
+        .neon-text { color: var(--neon); text-shadow: 0 0 5px var(--neon); }
+        input { background: transparent; border: 1px solid var(--neon); color: var(--neon); padding: 10px; width: calc(100% - 22px); outline: none; margin-top: 10px; }
+        button { background: var(--neon); color: black; border: none; padding: 10px; margin-top: 10px; cursor: pointer; font-weight: bold; width: 100%; text-transform: uppercase; }
+        button:hover { opacity: 0.8; }
+        .target-char { font-size: 3em; display: block; text-align: center; margin: 10px 0; }
+        @keyframes blink { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div class="terminal">
+    <div class="header">
+        > SYSTEM STATUS: <span id="status" class="neon-text">ŁĄCZENIE...</span><br>
+        > TWOJE ID: <span id="my-id" class="neon-text">GENEROWANIE...</span>
+    </div>
+
+    <div id="setup-view">
+        <p>Wklej ID HOSTA, aby dołączyć do grupy:</p>
+        <input type="text" id="target-id" placeholder="ID ZNAJOMEGO...">
+        <button onclick="joinGame()">DOŁĄCZ DO GRY</button>
+        <p style="font-size: 0.7em; color: #888; margin-top: 20px;">* Aby grać w 3+ osoby, wszyscy wklejają ID TEGO SAMEGO HOSTA.</p>
+    </div>
+
+    <div id="game-view" style="display:none; height: 100%; display: flex; flex-direction: column;">
+        <div style="text-align: center;">
+            NASTĘPNA LITERA:
+            <span id="target-char" class="target-char neon-text">?</span>
+        </div>
+        <div id="history"></div>
+        <input type="text" id="word-input" placeholder="WPISZ SŁOWO..." autocomplete="off">
+    </div>
+</div>
+
+<script>
+    const peer = new Peer();
+    let conns = [];
+    let lastWord = "";
+    let isHost = false;
+
+    peer.on('open', id => {
+        document.getElementById('my-id').innerText = id;
+        document.getElementById('status').innerText = "ONLINE";
+    });
+
+    // Reakcja Hosta na gości
+    peer.on('connection', c => {
+        isHost = true;
+        conns.push(c);
+        initConn(c);
+        startUI();
+        setTimeout(() => c.send({type: 'sync', word: lastWord}), 1000);
+    });
+
+    function joinGame() {
+        const id = document.getElementById('target-id').value;
+        if(!id) return;
+        const c = peer.connect(id);
+        conns.push(c);
+        initConn(c);
+        startUI();
+    }
+
+    function initConn(c) {
+        c.on('data', data => {
+            if(data.type === 'msg') {
+                render(data.word, data.user);
+                if(isHost) broadcast({type: 'msg', word: data.word, user: data.user});
+            }
+            if(data.type === 'sync') render(data.word, "SYSTEM");
+        });
+    }
+
+    function broadcast(data) {
+        conns.forEach(c => c.open && c.send(data));
+    }
+
+    function render(word, user) {
+        if(!word) return;
+        lastWord = word;
+        document.getElementById('target-char').innerText = word.slice(-1).toUpperCase();
+        const h = document.getElementById('history');
+        h.innerHTML += `<div class="msg">[${user}]: ${word.toUpperCase()}</div>`;
+        h.scrollTop = h.scrollHeight;
+    }
+
+    function startUI() {
+        document.getElementById('setup-view').style.display = 'none';
+        document.getElementById('game-view').style.display = 'flex';
+    }
+
+    document.getElementById('word-input').onkeydown = e => {
+        if(e.key === 'Enter') {
+            const w = e.target.value.trim().toLowerCase();
+            if(!w) return;
+            if(lastWord && w[0] !== lastWord.slice(-1)) {
+                alert("ZŁA LITERA!");
+                return;
+            }
+            render(w, "TY");
+            const payload = {type: 'msg', word: w, user: "GRACZ"};
+            if(isHost) broadcast(payload); else conns[0].send(payload);
+            e.target.value = "";
+        }
+    };
+</script>
+</body>
+</html>
