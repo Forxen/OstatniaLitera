@@ -2,119 +2,162 @@
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>SŁOWO-LINK PRO | MULTI</title>
-    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <style>
-        :root { --neon: #00ff41; --bg: #050505; }
-        body { background: var(--bg); color: white; font-family: 'Courier New', monospace; margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
-        .terminal { width: 90%; max-width: 600px; height: 80vh; border: 2px solid var(--neon); background: rgba(0,20,0,0.9); box-shadow: 0 0 20px rgba(0,255,65,0.2); display: flex; flex-direction: column; padding: 20px; border-radius: 5px; }
-        .header { border-bottom: 1px solid var(--neon); padding-bottom: 10px; margin-bottom: 15px; font-size: 0.8em; }
-        #history { flex-grow: 1; overflow-y: auto; margin-bottom: 15px; scrollbar-width: thin; scrollbar-color: var(--neon) transparent; }
-        .msg { margin-bottom: 5px; animation: blink 0.1s; }
-        .neon-text { color: var(--neon); text-shadow: 0 0 5px var(--neon); }
-        input { background: transparent; border: 1px solid var(--neon); color: var(--neon); padding: 10px; width: calc(100% - 22px); outline: none; margin-top: 10px; }
-        button { background: var(--neon); color: black; border: none; padding: 10px; margin-top: 10px; cursor: pointer; font-weight: bold; width: 100%; text-transform: uppercase; }
-        button:hover { opacity: 0.8; }
-        .target-char { font-size: 3em; display: block; text-align: center; margin: 10px 0; }
-        @keyframes blink { from { opacity: 0; } to { opacity: 1; } }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SŁOWOTOK // 26</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <!-- Nowoczesne fonty: Inter (UI) i JetBrains Mono (Dane) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;500;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
-<div class="terminal">
-    <div class="header">
-        > SYSTEM STATUS: <span id="status" class="neon-text">ŁĄCZENIE...</span><br>
-        > TWOJE ID: <span id="my-id" class="neon-text">GENEROWANIE...</span>
+    <!-- TŁO AMBIENT -->
+    <div class="ambient-bg">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
     </div>
 
-    <div id="setup-view">
-        <p>Wklej ID HOSTA, aby dołączyć do grupy:</p>
-        <input type="text" id="target-id" placeholder="ID ZNAJOMEGO...">
-        <button onclick="joinGame()">DOŁĄCZ DO GRY</button>
-        <p style="font-size: 0.7em; color: #888; margin-top: 20px;">* Aby grać w 3+ osoby, wszyscy wklejają ID TEGO SAMEGO HOSTA.</p>
+    <div class="app-wrapper">
+        <!-- HEADER -->
+        <header class="top-bar">
+            <div class="brand">SŁOWO<span class="highlight">TOK</span>_26</div>
+            <div class="status-indicator online">ONLINE</div>
+        </header>
+
+        <main class="glass-panel">
+            
+            <!-- EKRAN LOGOWANIA -->
+            <section id="screen-login" class="screen active fade-in">
+                <div class="hero-text">
+                    <h1>Witaj w przyszłości<br>słownych potyczek.</h1>
+                    <p>P2P / Encrypted / Real-time</p>
+                </div>
+                
+                <div class="input-modern-group">
+                    <label>IDENTYFIKATOR (NICK)</label>
+                    <input type="text" id="my-nick" placeholder="Twoja nazwa..." maxlength="12" autocomplete="off">
+                </div>
+
+                <div class="actions-grid">
+                    <button onclick="createGame()" class="btn-main">
+                        <span>STWÓRZ LOBBY</span>
+                        <div class="btn-arrow">→</div>
+                    </button>
+                    <button onclick="showJoinInput()" class="btn-ghost">DOŁĄCZ DO GRY</button>
+                </div>
+
+                <div id="join-area" class="input-modern-group hidden slide-up">
+                    <label>KOD DOSTĘPU</label>
+                    <div class="join-row">
+                        <input type="text" id="join-id" placeholder="Wklej kod hosta...">
+                        <button onclick="joinGame()" class="btn-icon">↵</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- EKRAN LOBBY -->
+            <section id="screen-lobby" class="screen fade-in">
+                <div class="lobby-header">
+                    <h2>PANEL LOBBY</h2>
+                    <div class="copy-box" onclick="copyId()">
+                        <span class="label">KOD SESJI</span>
+                        <span class="code-val" id="display-id">ŁADOWANIE...</span>
+                        <span class="icon">❐</span>
+                    </div>
+                </div>
+                
+                <div class="grid-layout">
+                    <div class="card players-card">
+                        <div class="card-header">
+                            <span>POŁĄCZENI</span>
+                            <span class="dot-pulse"></span>
+                        </div>
+                        <ul id="lobby-players" class="modern-list"></ul>
+                    </div>
+
+                    <div class="card settings-card" id="host-controls">
+                        <div class="card-header">USTAWIENIA</div>
+                        <div class="slider-container">
+                            <label>LIMIT GRACZY: <span id="max-players-val">4</span></label>
+                            <input type="range" id="max-players-range" min="2" max="8" value="4" onchange="updateSettings()">
+                        </div>
+                        <button id="start-btn" onclick="startGame()" class="btn-full hidden">ROZPOCZNIJ SEKWENCJĘ</button>
+                    </div>
+                </div>
+                <p id="status-msg" class="status-text">Oczekiwanie na inicjalizację hosta...</p>
+            </section>
+
+            <!-- EKRAN GRY -->
+            <section id="screen-game" class="screen fade-in">
+                <!-- HUD GÓRNY -->
+                <div class="game-hud-top">
+                    <div class="turn-badge">
+                        <span class="label">AKTUALNA TURA</span>
+                        <span id="current-player-name" class="value">...</span>
+                    </div>
+                    <div class="lives-badge">
+                        <span class="label">STAN INTEGRALNOŚCI</span>
+                        <div id="current-lives" class="hearts">❤️❤️❤️</div>
+                    </div>
+                </div>
+
+                <!-- CENTRUM GRY -->
+                <div class="game-center">
+                    
+                    <!-- TIMER JAKO PASEK -->
+                    <div class="timer-container">
+                        <div class="timer-bar" id="timer-bar"></div>
+                        <span id="timer-text">15.00</span>
+                    </div>
+
+                    <!-- FAZA 1: WYBÓR -->
+                    <div id="phase-choice" class="phase-container hidden">
+                        <h3>INICJACJA LITERĄ</h3>
+                        <div class="letters-grid" id="letters-options"></div>
+                    </div>
+
+                    <!-- FAZA 2: SŁOWO -->
+                    <div id="phase-word" class="phase-container hidden">
+                        <div class="letter-display">
+                            <span>WYMAGANY ZNAK</span>
+                            <strong id="required-letter">A</strong>
+                        </div>
+                        
+                        <div class="input-wrapper">
+                            <input type="text" id="word-input" placeholder="WPISZ SŁOWO..." autocomplete="off">
+                            <div class="attempts-dots" id="attempts-bar">
+                                <span></span><span></span><span></span><span></span><span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LOG -->
+                <div class="game-log-wrapper">
+                    <div class="log-overlay"></div>
+                    <div id="game-log" class="modern-log"></div>
+                </div>
+            </section>
+        </main>
     </div>
 
-    <div id="game-view" style="display:none; height: 100%; display: flex; flex-direction: column;">
-        <div style="text-align: center;">
-            NASTĘPNA LITERA:
-            <span id="target-char" class="target-char neon-text">?</span>
-        </div>
-        <div id="history"></div>
-        <input type="text" id="word-input" placeholder="WPISZ SŁOWO..." autocomplete="off">
-    </div>
-</div>
-
-<script>
-    const peer = new Peer();
-    let conns = [];
-    let lastWord = "";
-    let isHost = false;
-
-    peer.on('open', id => {
-        document.getElementById('my-id').innerText = id;
-        document.getElementById('status').innerText = "ONLINE";
-    });
-
-    // Reakcja Hosta na gości
-    peer.on('connection', c => {
-        isHost = true;
-        conns.push(c);
-        initConn(c);
-        startUI();
-        setTimeout(() => c.send({type: 'sync', word: lastWord}), 1000);
-    });
-
-    function joinGame() {
-        const id = document.getElementById('target-id').value;
-        if(!id) return;
-        const c = peer.connect(id);
-        conns.push(c);
-        initConn(c);
-        startUI();
-    }
-
-    function initConn(c) {
-        c.on('data', data => {
-            if(data.type === 'msg') {
-                render(data.word, data.user);
-                if(isHost) broadcast({type: 'msg', word: data.word, user: data.user});
-            }
-            if(data.type === 'sync') render(data.word, "SYSTEM");
-        });
-    }
-
-    function broadcast(data) {
-        conns.forEach(c => c.open && c.send(data));
-    }
-
-    function render(word, user) {
-        if(!word) return;
-        lastWord = word;
-        document.getElementById('target-char').innerText = word.slice(-1).toUpperCase();
-        const h = document.getElementById('history');
-        h.innerHTML += `<div class="msg">[${user}]: ${word.toUpperCase()}</div>`;
-        h.scrollTop = h.scrollHeight;
-    }
-
-    function startUI() {
-        document.getElementById('setup-view').style.display = 'none';
-        document.getElementById('game-view').style.display = 'flex';
-    }
-
-    document.getElementById('word-input').onkeydown = e => {
-        if(e.key === 'Enter') {
-            const w = e.target.value.trim().toLowerCase();
-            if(!w) return;
-            if(lastWord && w[0] !== lastWord.slice(-1)) {
-                alert("ZŁA LITERA!");
-                return;
-            }
-            render(w, "TY");
-            const payload = {type: 'msg', word: w, user: "GRACZ"};
-            if(isHost) broadcast(payload); else conns[0].send(payload);
-            e.target.value = "";
+    <script src="script.js"></script>
+    <!-- Update Timera w JS dla nowego paska -->
+    <script>
+        // Nadpisanie funkcji updateTimerUI dla nowego paska
+        const originalUpdateTimerUI = updateTimerUI; 
+        updateTimerUI = function(val) {
+            document.getElementById('timer-text').innerText = val.toFixed(2);
+            const percentage = (val / 15) * 100;
+            document.getElementById('timer-bar').style.width = percentage + "%";
+            
+            // Kolory paska
+            const bar = document.getElementById('timer-bar');
+            if(val < 5) bar.style.background = "#ff4757";
+            else if(val < 10) bar.style.background = "#ffa502";
+            else bar.style.background = "#2ed573";
         }
-    };
-</script>
+    </script>
 </body>
 </html>
